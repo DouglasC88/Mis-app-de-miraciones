@@ -1,0 +1,57 @@
+# Sincroniza automáticamente el index.html de la raíz de ESTE repo con la
+# versión publicada en el repo de origen:
+#
+#   DouglasC88/ripsfix-dentos  ->  pacientes-migracion/index.html  (rama main, público)
+#
+# Cómo funciona: cada pocos minutos descarga el archivo del origen y, si cambió,
+# lo commitea aquí. Así no tienes que copiarlo a mano nunca más.
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ IMPORTANTE: para que el disparador 'schedule' (cron) funcione, este       │
+# │ archivo debe estar en la RAMA POR DEFECTO del repo (main). Mientras viva  │
+# │ solo en una rama de trabajo, el cron NO se ejecuta y el botón "Run        │
+# │ workflow" tampoco aparece. Hay que llevar este archivo a main.            │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+name: Sync index.html desde ripsfix-dentos
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'     # cada 10 minutos (hora UTC). Sube o baja el intervalo a gusto.
+  workflow_dispatch:            # botón "Run workflow" para forzarlo manualmente.
+
+# El token automático de Actions necesita poder commitear en ESTE repo.
+permissions:
+  contents: write
+
+# Evita que dos ejecuciones simultáneas se pisen al hacer push.
+concurrency:
+  group: sync-index
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de este repo
+        uses: actions/checkout@v4
+
+      - name: Descargar index.html del repo de origen
+        env:
+          # Origen (público). Si cambia el repo, rama o ruta, edítalo aquí.
+          ORIGEN_URL: https://raw.githubusercontent.com/DouglasC88/ripsfix-dentos/main/pacientes-migracion/index.html
+        run: curl -fsSL "$ORIGEN_URL" -o index.html.nuevo
+
+      - name: Actualizar y commitear solo si hay cambios
+        run: |
+          if [ -f index.html ] && cmp -s index.html.nuevo index.html; then
+            echo "✅ index.html ya está al día; no hay nada que actualizar."
+            rm -f index.html.nuevo
+            exit 0
+          fi
+          mv index.html.nuevo index.html
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "chore: sync index.html desde ripsfix-dentos/pacientes-migracion"
+          git push
