@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Migración de Pacientes</title>
+<title>Pacientes para Migraciones</title>
 <meta name="theme-color" content="#100d08">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23F6DD8B'/><stop offset='0.55' stop-color='%23D4AF37'/><stop offset='1' stop-color='%23A67C00'/></linearGradient></defs><rect width='100' height='100' rx='24' fill='%23100d08'/><path d='M50 20 C38 20 30 27 30 39 C30 50 33 64 38 80 C40 86 47 85 48 78 L49.5 60 C49.7 57 50.3 57 50.5 60 L52 78 C53 85 60 86 62 80 C67 64 70 50 70 39 C70 27 62 20 50 20 Z' fill='url(%23g)'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23F6DD8B'/><stop offset='0.55' stop-color='%23D4AF37'/><stop offset='1' stop-color='%23A67C00'/></linearGradient></defs><rect width='100' height='100' rx='24' fill='url(%23g)'/><path d='M50 20 C38 20 30 27 30 39 C30 50 33 64 38 80 C40 86 47 85 48 78 L49.5 60 C49.7 57 50.3 57 50.5 60 L52 78 C53 85 60 86 62 80 C67 64 70 50 70 39 C70 27 62 20 50 20 Z' fill='%231a1505'/></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -43,7 +43,7 @@ body{font-family:var(--sans);background:var(--gray-50);color:var(--gray-900);min
   border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;
   box-shadow:0 4px 14px rgba(212,175,55,.35),inset 0 1px 1px rgba(255,255,255,.4);}
 .brand-text h1{font-family:var(--display);font-size:1.05rem;font-weight:800;color:var(--gray-900);}
-.brand-text h1 span{color:var(--blue);}
+.brand-text h1 span{background:linear-gradient(90deg,var(--gold-1),var(--gold-2));-webkit-background-clip:text;background-clip:text;color:transparent;}
 .brand-text p{font-size:.68rem;color:var(--gray-500);}
 
 /* STEPS */
@@ -60,7 +60,10 @@ body{font-family:var(--sans);background:var(--gray-50);color:var(--gray-900);min
 .step-sep.done{background:var(--green);}
 
 /* BODY */
-.app-body{max-width:1100px;margin:0 auto;padding:28px 20px 60px;}
+.app-body{max-width:1100px;margin:0 auto;padding:28px 20px 24px;}
+.app-footer{text-align:center;padding:8px 16px 36px;color:var(--gray-400);font-size:.74rem;letter-spacing:.02em;}
+.app-footer b{font-family:var(--display);font-weight:800;letter-spacing:.08em;
+  background:linear-gradient(90deg,var(--gold-1),var(--gold-2));-webkit-background-clip:text;background-clip:text;color:transparent;}
 
 /* CARDS */
 .card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);
@@ -275,9 +278,9 @@ tr.row-d td{background:var(--gray-100)!important;opacity:.55;text-decoration:lin
 <!-- HEADER -->
 <header class="app-header">
   <div class="brand">
-    <div class="brand-icon">🏥</div>
+    <div class="brand-icon"><svg viewBox="0 0 100 100" width="22" height="22" aria-hidden="true"><path d="M50 18 C37 18 28 26 28 39 C28 51 32 66 37 82 C39 88 47 87 48 79 L49.5 60 C49.7 56.5 50.3 56.5 50.5 60 L52 79 C53 87 61 88 63 82 C68 66 72 51 72 39 C72 26 63 18 50 18 Z" fill="#1a1505"/></svg></div>
     <div class="brand-text">
-      <h1>Migración de <span>Pacientes</span></h1>
+      <h1><span>Pacientes</span> para Migraciones</h1>
       <p>Organizador de migraciones de pacientes · DentOS</p>
     </div>
   </div>
@@ -2592,6 +2595,8 @@ function confirmExport(){
     </div>
   </div>
 </div>
+
+<footer class="app-footer">Pacientes para Migraciones · diseñado por <b>DACP</b></footer>
 
 </body>
 </html>
