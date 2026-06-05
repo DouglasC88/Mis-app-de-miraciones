@@ -1092,13 +1092,45 @@ function isPassportPattern(val){
   const s = clean(val).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
   return /^[A-Z]{1,2}\d{4,}$/.test(s);
 }
-// Aplica onlyDigits y registra hallazgo si hubo cambio
+// De una celda telefónica que puede traer VARIOS números (p. ej.
+// "3132801370 - 3208357326"), conserva UN SOLO número y descarta el resto.
+// Devuelve { result: número conservado, dropped: [números eliminados] }.
+function cleanPhone(orig){
+  // 1) Partir por separadores fuertes (varios números en una misma celda):
+  //    / , ; |  · salto de línea · " - " (guion entre espacios) · 2+ espacios · " y "/" o ".
+  const tokens = orig.split(/[\/,;|\n]+|\s+-\s+|\s{2,}|\s+[yYoO]\s+/)
+                     .map(onlyDigits).filter(Boolean);
+  // 2) Candidatos con longitud de teléfono válida (7 a 11 dígitos).
+  const cands = tokens.filter(p => p.length >= 7 && p.length <= 11);
+  if(cands.length >= 1){
+    const result  = cands[0];                                   // se conserva el primero
+    const dropped = [...new Set(cands.slice(1).filter(c => c !== result))];
+    return { result, dropped };
+  }
+  // 3) Sin separador claro: o es un solo número con formato, o vienen pegados.
+  const all = onlyDigits(orig);
+  if(all.length <= 11) return { result: all, dropped: [] };     // un solo número
+  // Demasiados dígitos => estaban pegados: tomar el primer celular (3########)
+  // o, en su defecto, los primeros 10 dígitos; el resto se reporta como eliminado.
+  const m      = all.match(/3\d{9}/);
+  const result = m ? m[0] : all.slice(0, 10);
+  const rest   = all.replace(result, '');
+  return { result, dropped: rest ? [rest] : [] };
+}
+
+// Limpia un campo telefónico: conserva un solo número y registra el hallazgo.
 function cleanNum(val, campo, rowFindings){
   const orig = clean(val);
   if(!orig) return '';
-  const result = onlyDigits(orig);
-  if(result !== orig && rowFindings){
-    rowFindings.push({type:'info', campo, msg:`Caracteres no numéricos eliminados: "${orig}" → "${result}"`});
+  const { result, dropped } = cleanPhone(orig);
+  if(rowFindings){
+    if(dropped.length){
+      rowFindings.push({type:'info', campo,
+        msg:`Se detectaron varios números; se conservó "${result}" y se eliminó: "${dropped.join('", "')}".`});
+    } else if(result !== orig){
+      rowFindings.push({type:'info', campo,
+        msg:`Caracteres no numéricos eliminados: "${orig}" → "${result}"`});
+    }
   }
   return result;
 }
