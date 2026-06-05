@@ -353,9 +353,9 @@ tr.row-d td{background:var(--gray-100)!important;opacity:.55;text-decoration:lin
       </div>
 
       <!-- Selector de filas a saltar después del encabezado -->
-      <div style="background:#fffbeb;border:1px solid #f5d652;border-radius:9px;
+      <div style="background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:9px;
            padding:11px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span style="font-family:var(--display);font-size:.8rem;font-weight:700;color:#7c5c00;">
+        <span style="font-family:var(--display);font-size:.8rem;font-weight:700;color:var(--blue);">
           ¿Cuántas filas de descripción hay después de los títulos?
         </span>
         <div style="display:flex;gap:6px;">
@@ -2450,68 +2450,68 @@ function updateExportReview(){
   const summary = document.getElementById('er-summary');
   if(summary) summary.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:4px;">
-      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 8px;text-align:center;">
-        <div style="font-size:1.35rem;font-weight:800;color:#16a34a;">${cntOk}</div>
-        <div style="font-size:.68rem;color:#15803d;font-weight:600;margin-top:3px;">Sin hallazgos</div>
+      <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:12px 8px;text-align:center;">
+        <div style="font-size:1.35rem;font-weight:800;color:var(--green);">${cntOk}</div>
+        <div style="font-size:.68rem;color:var(--green);font-weight:600;margin-top:3px;">Sin hallazgos</div>
       </div>
-      <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:10px;padding:12px 8px;text-align:center;">
-        <div style="font-size:1.35rem;font-weight:800;color:#7c3aed;">${cntCorr}</div>
-        <div style="font-size:.68rem;color:#6d28d9;font-weight:600;margin-top:3px;">Corregidos</div>
+      <div style="background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.35);border-radius:10px;padding:12px 8px;text-align:center;">
+        <div style="font-size:1.35rem;font-weight:800;color:var(--purple);">${cntCorr}</div>
+        <div style="font-size:.68rem;color:var(--purple);font-weight:600;margin-top:3px;">Corregidos</div>
       </div>
-      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 8px;text-align:center;">
-        <div style="font-size:1.35rem;font-weight:800;color:#d97706;">${cntWarn}</div>
-        <div style="font-size:.68rem;color:#b45309;font-weight:600;margin-top:3px;">Advertencias</div>
+      <div style="background:var(--yellow-light);border:1px solid rgba(245,181,68,.4);border-radius:10px;padding:12px 8px;text-align:center;">
+        <div style="font-size:1.35rem;font-weight:800;color:var(--yellow);">${cntWarn}</div>
+        <div style="font-size:.68rem;color:var(--yellow);font-weight:600;margin-top:3px;">Advertencias</div>
       </div>
-      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 8px;text-align:center;">
-        <div style="font-size:1.35rem;font-weight:800;color:#dc2626;">${cntErr}</div>
-        <div style="font-size:.68rem;color:#b91c1c;font-weight:600;margin-top:3px;">Errores</div>
+      <div style="background:var(--red-light);border:1px solid var(--red-mid);border-radius:10px;padding:12px 8px;text-align:center;">
+        <div style="font-size:1.35rem;font-weight:800;color:var(--red);">${cntErr}</div>
+        <div style="font-size:.68rem;color:var(--red);font-weight:600;margin-top:3px;">Errores</div>
       </div>
-      <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:12px 8px;text-align:center;">
-        <div style="font-size:1.35rem;font-weight:800;color:#ea580c;">${cntDup}</div>
-        <div style="font-size:.68rem;color:#c2410c;font-weight:600;margin-top:3px;">Duplicados</div>
+      <div style="background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.38);border-radius:10px;padding:12px 8px;text-align:center;">
+        <div style="font-size:1.35rem;font-weight:800;color:var(--orange);">${cntDup}</div>
+        <div style="font-size:.68rem;color:var(--orange);font-weight:600;margin-top:3px;">Duplicados</div>
       </div>
     </div>`;
 
   // Contador exportables
   const cnt = document.getElementById('er-count');
-  if(cnt) cnt.innerHTML = `<span style="font-size:1.05rem;color:#15803d;">Se exportarán <strong>${cntExport}</strong> registros de ${st.processed.filter(r=>!r._isDuplicate).length}</span>`;
+  if(cnt) cnt.innerHTML = `<span style="font-size:1.05rem;color:var(--green);">Se exportarán <strong>${cntExport}</strong> registros de ${st.processed.filter(r=>!r._isDuplicate).length}</span>`;
 
   // Lista de filas problemáticas
   const prob = document.getElementById('er-problems');
   if(prob){
     if(!problemRows.length){
-      prob.innerHTML='<div style="padding:16px;text-align:center;color:#16a34a;font-size:.85rem;">🎉 Sin filas con errores ni advertencias.</div>';
+      prob.innerHTML='<div style="padding:16px;text-align:center;color:var(--green);font-size:.85rem;">🎉 Sin filas con errores ni advertencias.</div>';
     } else {
       prob.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.74rem;">
-        <thead style="position:sticky;top:0;background:#f1f5f9;z-index:1;">
+        <thead style="position:sticky;top:0;background:var(--gray-200);z-index:1;">
           <tr>
-            <th style="padding:7px 10px;text-align:left;color:#475569;font-weight:700;white-space:nowrap;">Fila</th>
-            <th style="padding:7px 10px;text-align:left;color:#475569;font-weight:700;">Nombre completo</th>
-            <th style="padding:7px 10px;text-align:left;color:#475569;font-weight:700;white-space:nowrap;">Tipo Doc</th>
-            <th style="padding:7px 10px;text-align:left;color:#475569;font-weight:700;white-space:nowrap;">N° Documento</th>
-            <th style="padding:7px 10px;text-align:left;color:#475569;font-weight:700;white-space:nowrap;">Fecha Nac.</th>
-            <th style="padding:7px 10px;text-align:left;color:#475569;font-weight:700;white-space:nowrap;">Estado</th>
-            <th style="padding:7px 10px;text-align:left;color:#475569;font-weight:700;">Detalle del hallazgo</th>
+            <th style="padding:7px 10px;text-align:left;color:var(--gray-500);font-weight:700;white-space:nowrap;">Fila</th>
+            <th style="padding:7px 10px;text-align:left;color:var(--gray-500);font-weight:700;">Nombre completo</th>
+            <th style="padding:7px 10px;text-align:left;color:var(--gray-500);font-weight:700;white-space:nowrap;">Tipo Doc</th>
+            <th style="padding:7px 10px;text-align:left;color:var(--gray-500);font-weight:700;white-space:nowrap;">N° Documento</th>
+            <th style="padding:7px 10px;text-align:left;color:var(--gray-500);font-weight:700;white-space:nowrap;">Fecha Nac.</th>
+            <th style="padding:7px 10px;text-align:left;color:var(--gray-500);font-weight:700;white-space:nowrap;">Estado</th>
+            <th style="padding:7px 10px;text-align:left;color:var(--gray-500);font-weight:700;">Detalle del hallazgo</th>
           </tr>
         </thead>
         <tbody>
           ${problemRows.map(({row,rfs,hasErr,hasWarn,isDup,excluded})=>{
             const nombre = [row.primer_nombre,row.segundo_nombre,row.primer_apellido,row.segundo_apellido].filter(Boolean).join(' ');
             const badge = isDup
-              ? `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;border-radius:4px;padding:2px 7px;font-size:.68rem;font-weight:700;">DUP</span>`
+              ? `<span style="background:rgba(251,146,60,.15);color:var(--orange);border:1px solid rgba(251,146,60,.4);border-radius:4px;padding:2px 7px;font-size:.68rem;font-weight:700;">DUP</span>`
               : hasErr
-                ? `<span style="background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;border-radius:4px;padding:2px 7px;font-size:.68rem;font-weight:700;">ERROR</span>`
-                : `<span style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;border-radius:4px;padding:2px 7px;font-size:.68rem;font-weight:700;">AVISO</span>`;
+                ? `<span style="background:var(--red-light);color:var(--red);border:1px solid var(--red-mid);border-radius:4px;padding:2px 7px;font-size:.68rem;font-weight:700;">ERROR</span>`
+                : `<span style="background:var(--yellow-light);color:var(--yellow);border:1px solid rgba(245,181,68,.4);border-radius:4px;padding:2px 7px;font-size:.68rem;font-weight:700;">AVISO</span>`;
             const exclBadge = excluded
-              ? `<span style="background:#fef2f2;color:#b91c1c;font-size:.65rem;margin-left:5px;padding:1px 5px;border-radius:3px;border:1px solid #fca5a5;">excluido</span>`
-              : `<span style="background:#f0fdf4;color:#16a34a;font-size:.65rem;margin-left:5px;padding:1px 5px;border-radius:3px;border:1px solid #86efac;">incluido</span>`;
-            const msgs = rfs.map(f=>`<div style="color:${f.type==='err'?'#b91c1c':f.type==='dup'?'#c2410c':'#92400e'};margin-bottom:3px;line-height:1.4;">· ${esc(f.msg)}</div>`).join('');
-            return `<tr style="border-top:1px solid #f1f5f9;background:${excluded?'#fff8f8':'inherit'}">
-              <td style="padding:8px 10px;color:#64748b;text-align:center;">${row._rowNum}</td>
+              ? `<span style="background:var(--red-light);color:var(--red);font-size:.65rem;margin-left:5px;padding:1px 5px;border-radius:3px;border:1px solid var(--red-mid);">excluido</span>`
+              : `<span style="background:var(--green-light);color:var(--green);font-size:.65rem;margin-left:5px;padding:1px 5px;border-radius:3px;border:1px solid var(--green-mid);">incluido</span>`;
+            const msgs = rfs.map(f=>`<div style="color:${f.type==='err'?'var(--red)':f.type==='dup'?'var(--orange)':'var(--yellow)'};margin-bottom:3px;line-height:1.4;">· ${esc(f.msg)}</div>`).join('');
+            return `<tr style="border-top:1px solid var(--gray-200);background:${excluded?'var(--red-light)':'inherit'}">
+              <td style="padding:8px 10px;color:var(--gray-400);text-align:center;">${row._rowNum}</td>
               <td style="padding:8px 10px;font-weight:500;">${esc(nombre)||'—'}</td>
-              <td style="padding:8px 10px;color:#475569;">${esc(row.tipo_documento)||'—'}</td>
+              <td style="padding:8px 10px;color:var(--gray-500);">${esc(row.tipo_documento)||'—'}</td>
               <td style="padding:8px 10px;">${esc(row.documento)||'—'}</td>
-              <td style="padding:8px 10px;color:#475569;white-space:nowrap;">${esc(row.fecha_nacimiento)||'—'}</td>
+              <td style="padding:8px 10px;color:var(--gray-500);white-space:nowrap;">${esc(row.fecha_nacimiento)||'—'}</td>
               <td style="padding:8px 10px;white-space:nowrap;">${badge}${exclBadge}</td>
               <td style="padding:8px 10px;">${msgs}</td>
             </tr>`;
@@ -2562,14 +2562,14 @@ function confirmExport(){
   style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;
          background:rgba(0,0,0,.5);z-index:2000;align-items:flex-start;
          justify-content:center;padding:24px 16px;overflow-y:auto;">
-  <div style="background:#fff;border-radius:16px;padding:28px 28px 24px;
-              box-shadow:0 12px 48px rgba(0,0,0,.28);width:100%;max-width:1140px;
+  <div style="background:var(--gray-100);border:1px solid var(--gray-300);border-radius:16px;padding:28px 28px 24px;
+              box-shadow:var(--shadow-lg);width:100%;max-width:1140px;
               margin:auto;">
 
     <!-- Encabezado modal -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <div>
-        <div style="font-family:var(--display);font-size:1.1rem;font-weight:800;color:var(--gray-800);">
+        <div style="font-family:var(--display);font-size:1.1rem;font-weight:800;color:var(--gray-900);">
           Revisión antes de exportar
         </div>
         <div style="font-size:.75rem;color:var(--gray-500);margin-top:3px;">
@@ -2584,24 +2584,24 @@ function confirmExport(){
     <div id="er-summary"></div>
 
     <!-- Opciones de exclusión -->
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+    <div style="background:var(--gray-50);border:1px solid var(--gray-300);border-radius:10px;
                 padding:14px 18px;margin:16px 0 12px;">
       <div style="font-weight:700;font-size:.8rem;color:var(--gray-700);margin-bottom:10px;">
         Opciones de exportación
       </div>
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:8px;">
         <input type="checkbox" id="er-excl-err" checked onchange="updateExportReview()"
-               style="width:16px;height:16px;accent-color:#dc2626;cursor:pointer;">
+               style="width:16px;height:16px;accent-color:var(--red);cursor:pointer;">
         <span style="font-size:.82rem;color:var(--gray-700);">
-          Excluir filas con <strong style="color:#dc2626;">Errores</strong>
+          Excluir filas con <strong style="color:var(--red);">Errores</strong>
           <span style="color:var(--gray-400);font-size:.73rem;">(documento vacío, nombre vacío, etc.)</span>
         </span>
       </label>
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer;">
         <input type="checkbox" id="er-excl-warn" onchange="updateExportReview()"
-               style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
+               style="width:16px;height:16px;accent-color:var(--yellow);cursor:pointer;">
         <span style="font-size:.82rem;color:var(--gray-700);">
-          Excluir filas con <strong style="color:#d97706;">Advertencias</strong>
+          Excluir filas con <strong style="color:var(--yellow);">Advertencias</strong>
           <span style="color:var(--gray-400);font-size:.73rem;">(fecha de nacimiento predeterminada, sexo sin inferir, etc.)</span>
         </span>
       </label>
@@ -2610,14 +2610,14 @@ function confirmExport(){
     <!-- Contador exportables -->
     <div id="er-count" style="text-align:center;font-size:.95rem;font-weight:600;
                                color:var(--gray-700);margin-bottom:14px;padding:10px;
-                               background:#f0fdf4;border-radius:8px;border:1px solid #86efac;">
+                               background:var(--green-light);border-radius:8px;border:1px solid var(--green-mid);">
     </div>
 
     <!-- Lista filas problemáticas -->
-    <div style="font-weight:700;font-size:.78rem;color:var(--gray-600);margin-bottom:6px;">
+    <div style="font-weight:700;font-size:.78rem;color:var(--gray-500);margin-bottom:6px;">
       Detalle de filas con errores, advertencias y duplicados
     </div>
-    <div id="er-problems" style="max-height:420px;overflow-y:auto;border:1px solid #e2e8f0;
+    <div id="er-problems" style="max-height:420px;overflow-y:auto;border:1px solid var(--gray-300);
                                   border-radius:8px;margin-bottom:20px;"></div>
 
     <!-- Botones -->
