@@ -820,6 +820,7 @@ function onMatrix(matrix, filename){
     if(filled > (row.length * 0.5)){ bestRow = i; break; }
   }
   st.headerRow = bestRow + 1;
+  st.autoDetected = false;
   applyHeaderRow(st.headerRow);
 
   const dz = document.getElementById('drop-zone');
@@ -833,6 +834,19 @@ function onMatrix(matrix, filename){
   toast(`Archivo cargado: ${st.raw.length} filas`,'ok');
 }
 
+// Dos columnas con el mismo título se pisaban entre sí (los datos se guardan en
+// un objeto por nombre de columna) y una de las dos se perdía sin aviso.
+function uniqueHeaders(rawHeaders){
+  const seen = {};
+  return rawHeaders.map((h,i)=>{
+    let s = String(h||'').trim() || `Columna_${i+1}`;
+    if(s === '__srcRow') s = '__srcRow_';           // nombre reservado interno
+    if(seen[s]){ seen[s]++; s = `${s} (${seen[s]})`; }
+    else seen[s] = 1;
+    return s;
+  });
+}
+
 // Aplica una fila como encabezado y construye st.headers y st.raw
 function applyHeaderRow(rowNum){
   st.headerRow = rowNum;
@@ -840,17 +854,15 @@ function applyHeaderRow(rowNum){
   if(idx < 0 || idx >= st.matrix.length){ return; }
 
   // La fila seleccionada son los títulos
-  const rawHeaders = st.matrix[idx];
-  st.headers = rawHeaders.map((h,i) => {
-    const s = String(h||'').trim();
-    return s || `Columna_${i+1}`;
-  });
+  st.headers = uniqueHeaders(st.matrix[idx]);
 
   // Las filas de datos son las que vienen DESPUÉS de la fila de títulos (+ saltar filas de descripción)
-  st.raw = st.matrix.slice(idx + 1 + (st.skipAfterHeader||0))
-    .filter(row => row.some(c => String(c||'').trim() !== ''))  // omitir filas vacías
-    .map(row => {
-      const obj = {};
+  const firstData = idx + 1 + (st.skipAfterHeader||0);
+  st.raw = st.matrix.slice(firstData)
+    .map((row, i) => ({ row, srcRow: firstData + i + 1 }))            // fila real del archivo (1-based)
+    .filter(({row}) => row.some(c => String(c||'').trim() !== ''))    // omitir filas vacías
+    .map(({row, srcRow}) => {
+      const obj = { __srcRow: srcRow };
       st.headers.forEach((h,i) => { obj[h] = String(row[i]??'').trim(); });
       return obj;
     });
@@ -864,9 +876,10 @@ function changeHeaderRow(n){
     const cols = st.matrix[0]?.length || 0;
     st.headers = Array.from({length:cols},(_,i)=>`Columna_${i+1}`);
     st.raw = st.matrix
-      .filter(row => row.some(c=>String(c||'').trim()!==''))
-      .map(row=>{
-        const obj={};
+      .map((row,i)=>({row, srcRow:i+1}))
+      .filter(({row}) => row.some(c=>String(c||'').trim()!==''))
+      .map(({row,srcRow})=>{
+        const obj={ __srcRow: srcRow };
         st.headers.forEach((h,i)=>{ obj[h]=String(row[i]??'').trim(); });
         return obj;
       });
@@ -874,7 +887,7 @@ function changeHeaderRow(n){
   } else {
     applyHeaderRow(num);
   }
-  st.fieldMap={}; st.fullCol=''; st.nombresCol=''; st.apellidosCol='';
+  st.fieldMap={}; st.fullCol=''; st.nombresCol=''; st.apellidosCol=''; st.autoDetected=false;
   buildMappingUI();
 }
 
@@ -883,7 +896,7 @@ function changeSkipAfterHeader(n){
   // Re-apply current header row with new skip value
   if(st.headerRow > 0) applyHeaderRow(st.headerRow);
   else changeHeaderRow(0);
-  st.fieldMap={}; st.fullCol=''; st.nombresCol=''; st.apellidosCol='';
+  st.fieldMap={}; st.fullCol=''; st.nombresCol=''; st.apellidosCol=''; st.autoDetected=false;
   buildMappingUI();
 }
 
@@ -1021,7 +1034,9 @@ function buildMappingUI(){
     const b=document.getElementById('skip-btn-'+i);
     if(b) b.classList.toggle('active', (st.skipAfterHeader||0)===i);
   });
-  autoDetect();
+  // Solo autodetectar la primera vez tras cargar/cambiar el encabezado: antes se
+  // ejecutaba en cada visita al paso 2 y borraba el mapeo hecho a mano.
+  if(!st.autoDetected){ autoDetect(); st.autoDetected = true; }
   renderRawPreview();
   ['full','two','sep'].forEach(x=>document.getElementById('nm-'+x).classList.toggle('active',x===st.nameMode));
   renderNameInputs();
@@ -1051,7 +1066,7 @@ function buildMappingUI(){
 function updateSelStyle(sel){ sel.classList.toggle('ok', !!sel.value); }
 
 // ─── UTILIDADES ─────────────────────────────────────────────────────────────
-function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function clean(v){
   return String(v??'')
     .replace(/[\r\n\t]/g,' ')              // saltos y tabs rompen el formato delimitado
@@ -1130,7 +1145,14 @@ function cleanPhone(orig){
 function cleanNum(val, campo, rowFindings){
   const orig = clean(val);
   if(!orig) return '';
-  const { result, dropped } = cleanPhone(orig);
+  let { result, dropped } = cleanPhone(orig);
+
+  // Basura numérica ("0", "000", "999999"): no es un teléfono, se descarta.
+  if(result && /^(0+|9+)$/.test(result)){
+    if(rowFindings) rowFindings.push({type:'info', campo,
+      msg:`Valor "${orig}" no es un teléfono válido; se dejó vacío.`});
+    return '';
+  }
   if(rowFindings){
     if(dropped.length){
       rowFindings.push({type:'info', campo,
@@ -1138,6 +1160,11 @@ function cleanNum(val, campo, rowFindings){
     } else if(result !== orig){
       rowFindings.push({type:'info', campo,
         msg:`Caracteres no numéricos eliminados: "${orig}" → "${result}"`});
+    }
+    // En Colombia un fijo tiene 7 o 10 dígitos y un celular 10 empezando por 3.
+    if(result && result.length!==7 && result.length!==10){
+      rowFindings.push({type:'warn', campo,
+        msg:`Teléfono con ${result.length} dígitos ("${result}"); se esperan 7 (fijo) o 10 (celular/fijo nuevo). Verifíquelo.`});
     }
   }
   return result;
@@ -1157,6 +1184,11 @@ function cleanDoc(val, tipoDoc, rowFindings){
   if(result !== orig && rowFindings){
     rowFindings.push({type:'info', campo:'Documento', msg:`Documento limpiado: "${orig}" → "${result}"`});
   }
+  const min = DOC_MIN_LEN[tipoDoc];
+  if(rowFindings && result && min && result.length < min){
+    rowFindings.push({type:'warn', campo:'Documento',
+      msg:`Documento "${result}" tiene solo ${result.length} caracteres; un ${tipoDoc} suele tener al menos ${min}. Verifíquelo.`});
+  }
   return result;
 }
 
@@ -1166,11 +1198,22 @@ function fmtDate(val){
   return `${y}-${mo}-${da}`;
 }
 
+// Edad del origen: solo se acepta un entero plausible (0-120).
+function validAge(val){
+  const v=clean(val);
+  if(!/^\d{1,3}$/.test(v)) return null;
+  const n=parseInt(v,10);
+  return (n>=0&&n<=120)?String(n):null;
+}
+
+// Longitud minima razonable de un documento colombiano por tipo.
+const DOC_MIN_LEN = { RC:8, TI:8, CC:6, CE:5, PA:5 };
+
 function calcAge(dob){
   const d=parseDate(dob); if(!d) return '';
   const now=new Date(); let age=now.getFullYear()-d.getFullYear();
   if(now.getMonth()<d.getMonth()||(now.getMonth()===d.getMonth()&&now.getDate()<d.getDate())) age--;
-  return age>=0?String(age):'';
+  return (age>=0&&age<=120)?String(age):'';   // 126 años no es una edad real
 }
 
 function inferDocType(dob){
@@ -1230,18 +1273,21 @@ function inferSex(nombre){
   if(NAMES_M.has(n)) return 'masculino';
   if(NAMES_F.has(n)) return 'femenino';
   // Reglas gramaticales
-  if(n.endsWith('A')&&!['EZA','ADA'].some(x=>n.endsWith(x)&&n.length<4)) return 'femenino';
+  if(n.endsWith('A')) return 'femenino';
   if(n.endsWith('O')||n.endsWith('OS')) return 'masculino';
   if(['SON','IN','ON','AN','EL','OL','ER','US','IS','OR'].some(x=>n.endsWith(x))) return 'masculino';
   return '';
 }
 
+// DentOS solo acepta 'masculino' / 'femenino'. Cualquier otro valor
+// ("NINGUNO", "OTRO", "N/A", "-") se descarta para que actue la inferencia
+// por nombre; antes se exportaba tal cual y DentOS lo rechazaba.
 function normSexo(val){
   if(!val) return '';
-  const v=clean(val).toUpperCase();
-  if(['M','H','MASCULINO','HOMBRE','1','MALE'].includes(v)) return 'masculino';
-  if(['F','FEMENINO','MUJER','2','FEMALE'].includes(v)) return 'femenino';
-  return clean(val).toLowerCase();
+  const v=clean(val).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(['M','H','MASC','MASCULINO','HOMBRE','1','MALE'].includes(v)) return 'masculino';
+  if(['F','FEM','FEMENINO','MUJER','2','FEMALE'].includes(v)) return 'femenino';
+  return '';
 }
 
 function splitFull(s){
@@ -1267,7 +1313,7 @@ function processData(){
   let fila=1;
 
   st.raw.forEach((row,idx)=>{
-    const rn = idx+2; // fila humana (sin contar encabezado)
+    const rn = row.__srcRow || idx+2; // fila real del archivo de origen
     const rowFindings=[];
     const out={};
 
@@ -1295,13 +1341,14 @@ function processData(){
     const docNum = getVal(row, st.fieldMap.documento);
     const fechaNacOrig = getVal(row, st.fieldMap.fecha_nacimiento);
     let fechaNacFmt = fmtDate(fechaNacOrig);
+    let dobDefaulted = false;
     const _parsedFec = parseDate(fechaNacFmt);
     if(!_parsedFec){
-      fechaNacFmt = DEFAULT_DOB;
+      fechaNacFmt = DEFAULT_DOB; dobDefaulted = true;
       rowFindings.push({type:'warn',campo:'Fecha Nacimiento',msg:`Sin fecha de nacimiento válida; se asignó la fecha predeterminada ${DEFAULT_DOB}.`});
     } else if(_parsedFec > new Date()){
       rowFindings.push({type:'warn',campo:'Fecha Nacimiento',msg:`Fecha de nacimiento futura (${fechaNacFmt}) es inválida; se asignó la fecha predeterminada ${DEFAULT_DOB}.`});
-      fechaNacFmt = DEFAULT_DOB;
+      fechaNacFmt = DEFAULT_DOB; dobDefaulted = true;
     } else if(fechaNacOrig && fechaNacFmt !== clean(fechaNacOrig)){
       rowFindings.push({type:'info',campo:'Fecha Nacimiento',msg:`Fecha reformateada: "${fechaNacOrig}" → "${fechaNacFmt}"`});
     }
@@ -1316,12 +1363,20 @@ function processData(){
     else if(dt.reason==='corrected') rowFindings.push({type:'info',campo:'Tipo Documento',msg:`Corregido por edad (DANE): "${rawDoc||dt.src}" → "${dt.tipo}".`});
     else if(dt.reason==='unknown') rowFindings.push({type:'warn',campo:'Tipo Documento',msg:'No se pudo determinar el tipo de documento.'});
 
-    // EDAD (regla 3)
+    // EDAD (regla 3) — solo enteros plausibles; nunca se calcula desde la
+    // fecha predeterminada (daba edades absurdas como 126 años).
     const rawEdad = getVal(row, st.fieldMap.edad);
-    let edad = rawEdad ? clean(rawEdad) : '';
-    if(!edad && fechaNacFmt){
+    let edad = validAge(rawEdad);
+    if(rawEdad && edad === null){
+      rowFindings.push({type:'warn',campo:'Edad',msg:`Edad "${rawEdad}" no es un número válido; se descartó.`});
+    }
+    if(edad === null) edad = '';
+    if(fechaNacFmt === DEFAULT_DOB) dobDefaulted = true;
+    if(!edad && !dobDefaulted){
       edad = calcAge(fechaNacFmt);
       if(edad) rowFindings.push({type:'info',campo:'Edad',msg:`Calculada automáticamente desde fecha de nacimiento: ${edad} años.`});
+    } else if(!edad && dobDefaulted){
+      rowFindings.push({type:'info',campo:'Edad',msg:'Sin edad y sin fecha de nacimiento válida; se dejó vacía.'});
     }
     out.edad = edad;
 
@@ -1330,8 +1385,9 @@ function processData(){
     let sexo = normSexo(rawSexo);
     if(!sexo){
       const inf = inferSex(out.primer_nombre);
-      if(inf){ sexo=inf; rowFindings.push({type:'info',campo:'Sexo',msg:`Sin sexo. Inferido por nombre "${out.primer_nombre}": ${inf}.`}); }
-      else rowFindings.push({type:'warn',campo:'Sexo',msg:`Sin sexo y no se pudo inferir por el nombre "${out.primer_nombre}".`});
+      const causa = rawSexo ? `Sexo "${rawSexo}" no es válido para DentOS` : 'Sin sexo';
+      if(inf){ sexo=inf; rowFindings.push({type:'info',campo:'Sexo',msg:`${causa}. Inferido por nombre "${out.primer_nombre}": ${inf}.`}); }
+      else rowFindings.push({type:'warn',campo:'Sexo',msg:`${causa} y no se pudo inferir por el nombre "${out.primer_nombre}".`});
     } else if(rawSexo.toLowerCase()!==sexo){
       rowFindings.push({type:'info',campo:'Sexo',msg:`Normalizado: "${rawSexo}" → "${sexo}"`});
     }
@@ -1382,18 +1438,18 @@ function processData(){
   });
 
   // ── DUPLICADOS: detectar por número de documento ──────────────────────────
-  const seenDocs = new Map(); // documento → rowNum de la primera aparición
-  processed.forEach((row, idx) => {
+  const seenDocs = new Map(); // documento → fila de la primera aparición
+  processed.forEach(row => {
     const doc = row.documento;
     if(!doc) return;
     if(seenDocs.has(doc)){
       row._isDuplicate = true;
       findings.push({
-        rowNum: idx+2, type:'dup', campo:'Duplicado',
+        rowNum: row._rowNum, type:'dup', campo:'Duplicado',
         msg:`Documento ${doc} ya existe en fila ${seenDocs.get(doc)}. Este registro se elimina del exportable.`
       });
     } else {
-      seenDocs.set(doc, idx+2);
+      seenDocs.set(doc, row._rowNum);
     }
   });
 
@@ -1433,14 +1489,6 @@ const VISIBLE = ['fila','tipo_documento','documento','primer_nombre','segundo_no
   'primer_apellido','segundo_apellido','fecha_nacimiento','edad','sexo',
   'direccion','telefono','celular','email','eps','tipo_afiliacion'];
 
-function getRowStatus(rowNum){
-  const rf = st.findings.filter(f=>f.rowNum===rowNum);
-  if(rf.some(f=>f.type==='err')) return 'err';
-  if(rf.some(f=>f.type==='warn')) return 'warn';
-  if(rf.some(f=>f.type==='info')) return 'corr';
-  return 'ok';
-}
-
 function renderTable(){
   const start=(st.page-1)*PAGE, pageRows=st.filtered.slice(start,start+PAGE);
   const rn = document.getElementById('rows-lbl'); rn.textContent = `${st.filtered.length} filas`;
@@ -1468,17 +1516,8 @@ function renderTable(){
   document.querySelector('.tbl-wrap').classList.remove('hidden');
   document.getElementById('tbl-empty').classList.add('hidden');
 
-  const rowNum = (row)=>{
-    // map processed row back to original row number
-    const idx = st.processed.indexOf(row);
-    return idx>=0 ? idx+2 : 0;
-  };
-
   tbody.innerHTML = pageRows.map(row=>{
-    const rn2 = parseInt(row.fila,10)+1; // fila+1 = row number (fila is 1-based, row number = fila+1 header)
-    // Actually let's use the position in processed array
-    const idx = st.processed.indexOf(row);
-    const origRow = idx+2;
+    const origRow = row._rowNum;
     const isDup = !!row._isDuplicate;
     const cls = isDup?'row-d':errRows.has(origRow)?'row-e':warnRows.has(origRow)?'row-w':infoRows.has(origRow)?'row-i':'';
     const tags = isDup?'<span class="tag" style="background:#FED7AA;color:#C2410C">DUP</span>':
@@ -1518,8 +1557,8 @@ function applyFilters(){
   const warnRows=new Set(st.findings.filter(f=>f.type==='warn').map(f=>f.rowNum));
   const infoRows=new Set(st.findings.filter(f=>f.type==='info').map(f=>f.rowNum));
 
-  st.filtered=st.processed.filter((row,idx)=>{
-    const origRow=idx+2;
+  st.filtered=st.processed.filter(row=>{
+    const origRow=row._rowNum;
     if(q){
       const s=[row.documento,row.primer_nombre,row.segundo_nombre,row.primer_apellido,row.segundo_apellido,row.eps].join(' ').toLowerCase();
       if(!s.includes(q)) return false;
@@ -1772,7 +1811,7 @@ function exportFindings(){
 </div>
 
 <script>
-const DATOS = ${JSON.stringify(datos)};
+const DATOS = ${JSON.stringify(datos).replace(/</g,'\\u003c')};
 
 function badgeHtml(tipo){
   if(tipo==='err')  return '<span class="badge badge-err">Error</span>';
@@ -1953,14 +1992,16 @@ function faltApplyHeaderRow(which, rowNum){
   if(rowNum===0){
     const cols=S.matrix[0]?.length||0;
     S.headers=Array.from({length:cols},(_,i)=>`Columna_${i+1}`);
-    S.raw=S.matrix.filter(r=>r.some(c=>String(c||'').trim()!==''))
-      .map(r=>{ const o={}; S.headers.forEach((h,i)=>o[h]=String(r[i]??'').trim()); return o; });
+    S.raw=S.matrix.map((r,i)=>({r,srcRow:i+1}))
+      .filter(({r})=>r.some(c=>String(c||'').trim()!==''))
+      .map(({r,srcRow})=>{ const o={__srcRow:srcRow}; S.headers.forEach((h,i)=>o[h]=String(r[i]??'').trim()); return o; });
   } else {
     const idx=rowNum-1;
     if(idx<0||idx>=S.matrix.length) return;
-    S.headers=S.matrix[idx].map((h,i)=>{ const s=String(h||'').trim(); return s||`Columna_${i+1}`; });
-    S.raw=S.matrix.slice(idx+1).filter(r=>r.some(c=>String(c||'').trim()!==''))
-      .map(r=>{ const o={}; S.headers.forEach((h,i)=>o[h]=String(r[i]??'').trim()); return o; });
+    S.headers=uniqueHeaders(S.matrix[idx]);
+    S.raw=S.matrix.slice(idx+1).map((r,i)=>({r,srcRow:idx+1+i+1}))
+      .filter(({r})=>r.some(c=>String(c||'').trim()!==''))
+      .map(({r,srcRow})=>{ const o={__srcRow:srcRow}; S.headers.forEach((h,i)=>o[h]=String(r[i]??'').trim()); return o; });
   }
 }
 
@@ -2178,13 +2219,14 @@ function faltProcessRow(row, fila){
   // Fecha de nacimiento (con default si falta, inválida o futura) — regla 6
   const rawDocNum=getVal(row,S.fieldMap.documento);
   let fechaNacFmt=fmtDate(getVal(row,S.fieldMap.fecha_nacimiento));
+  let dobDefaulted=false;
   const _parsedFecF=parseDate(fechaNacFmt);
   if(!_parsedFecF){
-    fechaNacFmt=DEFAULT_DOB;
+    fechaNacFmt=DEFAULT_DOB; dobDefaulted=true;
     rowFindings.push({type:'warn',campo:'Fecha Nacimiento',msg:`Sin fecha de nacimiento válida; se asignó la fecha predeterminada ${DEFAULT_DOB}.`});
   } else if(_parsedFecF > new Date()){
     rowFindings.push({type:'warn',campo:'Fecha Nacimiento',msg:`Fecha de nacimiento futura (${fechaNacFmt}) es inválida; se asignó la fecha predeterminada ${DEFAULT_DOB}.`});
-    fechaNacFmt=DEFAULT_DOB;
+    fechaNacFmt=DEFAULT_DOB; dobDefaulted=true;
   }
   out.fecha_nacimiento=fechaNacFmt;
 
@@ -2197,18 +2239,22 @@ function faltProcessRow(row, fila){
   else if(dt.reason==='corrected') rowFindings.push({type:'info',campo:'Tipo Documento',msg:`Corregido por edad (DANE): "${rawDoc||dt.src}" → "${dt.tipo}".`});
   else if(dt.reason==='unknown') rowFindings.push({type:'warn',campo:'Tipo Documento',msg:'No se pudo determinar el tipo de documento.'});
 
-  // Edad
+  // Edad — nunca se calcula desde la fecha predeterminada
   const rawEdad=getVal(row,S.fieldMap.edad);
-  let edad=rawEdad?clean(rawEdad):'';
-  if(!edad&&fechaNacFmt){ edad=calcAge(fechaNacFmt); if(edad) rowFindings.push({type:'info',campo:'Edad',msg:`Calculada: ${edad} años.`}); }
+  let edad=validAge(rawEdad);
+  if(rawEdad && edad===null) rowFindings.push({type:'warn',campo:'Edad',msg:`Edad "${rawEdad}" no es un número válido; se descartó.`});
+  if(edad===null) edad='';
+  if(fechaNacFmt===DEFAULT_DOB) dobDefaulted=true;
+  if(!edad && !dobDefaulted){ edad=calcAge(fechaNacFmt); if(edad) rowFindings.push({type:'info',campo:'Edad',msg:`Calculada: ${edad} años.`}); }
   out.edad=edad;
 
   // Sexo
   const rawSexo=getVal(row,S.fieldMap.sexo);
   let sexo=normSexo(rawSexo);
   if(!sexo){ const inf=inferSex(out.primer_nombre);
-    if(inf){ sexo=inf; rowFindings.push({type:'info',campo:'Sexo',msg:`Inferido por nombre "${out.primer_nombre}": ${inf}.`}); }
-    else rowFindings.push({type:'warn',campo:'Sexo',msg:`Sin sexo y no se pudo inferir.`}); }
+    const causa = rawSexo ? `Sexo "${rawSexo}" no es válido para DentOS` : 'Sin sexo';
+    if(inf){ sexo=inf; rowFindings.push({type:'info',campo:'Sexo',msg:`${causa}. Inferido por nombre "${out.primer_nombre}": ${inf}.`}); }
+    else rowFindings.push({type:'warn',campo:'Sexo',msg:`${causa} y no se pudo inferir por el nombre.`}); }
   out.sexo=sexo;
 
   // Fecha registro
@@ -2243,22 +2289,38 @@ function faltCompare(){
   if(!B.fieldMap.fecha_nacimiento){ toast('Mapee la columna de Fecha de Nacimiento del Archivo B','err'); return; }
 
   // Set de documentos existentes en DentOS (solo dígitos para comparación robusta)
-  const existing=new Set();
-  A.raw.forEach(r=>{ const d=onlyDigits(r[A.docCol]); if(d) existing.add(d); });
+  // Identidad del documento = forma alfanumérica normalizada. Comparar solo por
+  // dígitos hacía que el pasaporte "AB123456" colisionara con la cédula "123456".
+  const docKey=v=>clean(v).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');
+  const existing=new Set();      // clave exacta (alfanumérica)
+  const existingDigits=new Set();// solo dígitos, para detectar casi-coincidencias
+  A.raw.forEach(r=>{
+    const k=docKey(r[A.docCol]); if(!k) return;
+    existing.add(k);
+    const d=onlyDigits(k); if(d) existingDigits.add(d);
+  });
 
   const faltantes=[], findings=[];
   const seenInB=new Map();   // documento → fila (para duplicados dentro de B)
   let yaExisten=0, dupes=0, fila=1;
 
   B.raw.forEach((row, idx)=>{
-    const rn=idx+2;
-    const docDigits=onlyDigits(getVal(row, B.fieldMap.documento));
+    const rn=row.__srcRow || idx+2;
+    const rawDocB=getVal(row, B.fieldMap.documento);
+    const docDigits=docKey(rawDocB);
     if(!docDigits){
       findings.push({rowNum:rn,type:'err',campo:'Documento',msg:'Fila del cliente sin número de documento — omitida.'});
       return;
     }
     // ¿ya está en DentOS?
     if(existing.has(docDigits)){ yaExisten++; return; }
+    // No coincide exacto, pero sus dígitos sí están en DentOS (p. ej. el archivo A
+    // trae el tipo pegado: "CC1097493880"). Se exporta, pero se avisa.
+    const _d=onlyDigits(docDigits);
+    if(_d && _d!==docDigits && existingDigits.has(_d)){
+      findings.push({rowNum:rn,type:'warn',campo:'Documento',
+        msg:`"${rawDocB}" no coincide exacto con DentOS, pero sus dígitos (${_d}) sí existen allí. Revise si es el mismo paciente antes de migrarlo.`});
+    }
     // ¿duplicado dentro del archivo del cliente?
     if(seenInB.has(docDigits)){
       dupes++;
