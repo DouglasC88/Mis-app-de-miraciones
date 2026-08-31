@@ -209,6 +209,12 @@ tr.row-d td{background:var(--gray-100)!important;opacity:.55;text-decoration:lin
   border-radius:8px;font-size:.85rem;outline:none;background:var(--white);transition:border-color .2s;}
 .export-input:focus{border-color:var(--blue);}
 .export-ext{font-size:.78rem;color:var(--gray-500);font-weight:600;white-space:nowrap;}
+.split-box{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--gray-500);
+  font-weight:600;white-space:nowrap;padding-left:4px;border-left:1px solid var(--gray-200);}
+.split-box input{width:76px;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;
+  font-size:.82rem;outline:none;background:var(--white);text-align:right;}
+.split-box input:focus{border-color:var(--blue);}
+.split-hint{flex-basis:100%;font-size:.74rem;color:var(--gray-500);line-height:1.5;}
 
 /* PAGINATION */
 .pagination{display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 14px;
@@ -461,8 +467,13 @@ tr.row-d td{background:var(--gray-100)!important;opacity:.55;text-decoration:lin
       <div class="export-box">
         <input type="text" class="export-input" id="export-name" placeholder="Nombre del archivo">
         <span class="export-ext">.txt</span>
+        <span class="split-box" title="DentOS rechaza los archivos muy grandes. 0 = un solo archivo.">
+          Dividir cada <input type="number" id="split-size" min="0" step="500" value="5000"> registros
+        </span>
         <button class="btn btn-green" onclick="showExportReview()">⬇ Exportar TXT (tabulación)</button>
         <button class="btn btn-yellow" onclick="exportFindings()">📄 Descargar reporte de hallazgos (.html)</button>
+        <div class="split-hint">Los archivos de más de ~1 MB son rechazados por el módulo de migraciones de DentOS.
+          Con 5.000 registros cada parte pesa ~0,8 MB. Use <b>0</b> para exportar todo en un solo archivo.</div>
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:12px;">
         <button class="btn btn-secondary" onclick="goStep(2)">← Volver a mapear</button>
@@ -602,6 +613,9 @@ tr.row-d td{background:var(--gray-100)!important;opacity:.55;text-decoration:lin
         <div class="export-box">
           <input type="text" class="export-input" id="falt-export-name" placeholder="Nombre del archivo" value="pacientes_faltantes">
           <span class="export-ext">.txt</span>
+          <span class="split-box" title="DentOS rechaza los archivos muy grandes. 0 = un solo archivo.">
+            Dividir cada <input type="number" id="falt-split-size" min="0" step="500" value="5000"> registros
+          </span>
           <button class="btn btn-green" onclick="faltExportTXT()">⬇ Exportar TXT (formato DentOS)</button>
           <button class="btn btn-yellow" onclick="faltExportFindings()">📄 Descargar hallazgos</button>
         </div>
@@ -1627,20 +1641,54 @@ function switchTab(id){
 }
 
 // ─── EXPORTAR TXT ────────────────────────────────────────────────────────
+// El módulo de migraciones de DentOS rechaza los archivos grandes: un TXT de
+// 2,4 MB con 14.862 pacientes falla con "El formato del archivo no es valido",
+// mientras que en partes de ~0,8 MB entra sin problema. Cada parte renumera la
+// columna Fila desde 1, porque DentOS procesa cada archivo por separado.
+function getSplitSize(inputId){
+  const v = parseInt(document.getElementById(inputId)?.value, 10);
+  return (isNaN(v) || v <= 0) ? 0 : v;
+}
+
+// Convierte filas procesadas en líneas del TXT, renumerando la columna Fila.
+function rowsToLines(rows){
+  let fila = 1;
+  return rows.map(row => {
+    const r = {...row, fila: String(fila++)};
+    return OUT.map(f => clean(String(r[f.id] ?? ''))).join('\t');
+  });
+}
+
+// Descarga las filas como uno o varios TXT. Devuelve cuántos archivos generó.
+function downloadRowsAsTXT(rows, name, splitSize){
+  const mk = chunk => new Blob([rowsToLines(chunk).join('\r\n')],{type:'text/plain;charset=utf-8'});
+  if(!splitSize || rows.length <= splitSize){
+    downloadBlob(mk(rows), name+'.txt');
+    return 1;
+  }
+  const parts = Math.ceil(rows.length / splitSize);
+  for(let i=0; i<parts; i++){
+    const blob = mk(rows.slice(i*splitSize, (i+1)*splitSize));
+    // El navegador bloquea las descargas simultáneas: se separan entre sí.
+    setTimeout(() => downloadBlob(blob, `${name}_parte_${i+1}.txt`), i*400);
+  }
+  return parts;
+}
+
+// Mensaje común tras exportar (avisa del permiso de descargas múltiples).
+function toastExport(nParts, nRows, extra){
+  if(nParts > 1) toast(`${nRows} registros en ${nParts} archivos${extra} ✅ — si el navegador lo pide, permita las descargas múltiples`,'ok');
+  else toast(`TXT exportado: ${nRows} registros${extra} ✅`,'ok');
+}
+
 function exportTXT(){
   if(!st.processed.length){ toast('Sin datos para exportar','err'); return; }
   const name=(document.getElementById('export-name').value.trim()||'migraciones_pacientes');
   // Excluir duplicados y renumerar columna Fila (reglas 7, 8, 9, 10)
-  let fila = 1;
   const exportRows = st.processed.filter(r=>!r._isDuplicate);
-  const lines = exportRows.map(row=>{
-    const r = {...row, fila: String(fila++)};
-    return OUT.map(f=>clean(String(r[f.id]??''))).join('\t');
-  });
-  const blob = new Blob([lines.join('\r\n')],{type:'text/plain;charset=utf-8'});
-  downloadBlob(blob, name+'.txt');
+  const parts = downloadRowsAsTXT(exportRows, name, getSplitSize('split-size'));
   const dupes = st.processed.length - exportRows.length;
-  toast(`TXT exportado: ${exportRows.length} registros (${dupes} duplicados eliminados) ✅`,'ok');
+  toastExport(parts, exportRows.length, ` (${dupes} duplicados eliminados)`);
 }
 
 // ─── EXPORTAR HALLAZGOS (Reporte HTML) ───────────────────────────────────
@@ -2459,14 +2507,8 @@ function faltSwitchTab(id){
 function faltExportTXT(){
   if(!faltState.faltantes.length){ toast('No hay pacientes faltantes para exportar','info'); return; }
   const name=(document.getElementById('falt-export-name').value.trim()||'pacientes_faltantes');
-  let fila=1;
-  const lines=faltState.faltantes.map(row=>{
-    const r={...row, fila:String(fila++)};
-    return OUT.map(f=>clean(String(r[f.id]??''))).join('\t');
-  });
-  const blob=new Blob([lines.join('\r\n')],{type:'text/plain;charset=utf-8'});
-  downloadBlob(blob, name+'.txt');
-  toast(`TXT exportado: ${faltState.faltantes.length} pacientes faltantes ✅`,'ok');
+  const parts = downloadRowsAsTXT(faltState.faltantes, name, getSplitSize('falt-split-size'));
+  toastExport(parts, faltState.faltantes.length, ' faltantes');
 }
 function faltExportFindings(){
   if(!faltState.findings.length){ toast('No hay hallazgos para exportar','info'); return; }
@@ -2617,7 +2659,6 @@ function confirmExport(){
     findingsByRow[f.rowNum].push(f);
   });
 
-  let fila = 1;
   const exportRows = st.processed.filter(row=>{
     if(row._isDuplicate) return false;
     const rfs = findingsByRow[row._rowNum] || [];
@@ -2628,16 +2669,10 @@ function confirmExport(){
     return true;
   });
 
-  const lines = exportRows.map(row=>{
-    const r = {...row, fila: String(fila++)};
-    return OUT.map(f=>clean(String(r[f.id]??''))).join('\t');
-  });
-  const blob = new Blob([lines.join('\r\n')],{type:'text/plain;charset=utf-8'});
-  downloadBlob(blob, name+'.txt');
-
+  const parts = downloadRowsAsTXT(exportRows, name, getSplitSize('split-size'));
   const excl = st.processed.length - exportRows.length;
   closeExportReview();
-  toast(`TXT exportado: ${exportRows.length} registros (${excl} excluidos) ✅`,'ok');
+  toastExport(parts, exportRows.length, ` (${excl} excluidos)`);
 }
 </script>
 
