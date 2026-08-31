@@ -738,7 +738,24 @@ const NAMES_F = new Set(['MARIA','ANA','LAURA','SANDRA','PATRICIA','GLORIA','CAR
   'ANGIE','XIOMY','SUSY','SUSI','GABY','NATY','PILY','VERO','CARO','CECI','PATY',
   'JOHIS','YURIS','YURIS','LURYS','LURISA','LEINA','LEINIS','LENIS','LURYS',
   'KAROL','KARLA','NORA','LINA','NELA','NELI','NELLY','NELSY','NELIDA','NEIDA',
-  'MEIDY','MEIDI','MAYRA','MAYTE','MAYTE','YENIFER','YENIFFER','YENIPHER',
+  'MEIDY','MEIDI','MAYRA','MAYTE','YENIFER','YENIFFER','YENIPHER',
+  // Nombres tomados de migraciones reales que las reglas gramaticales no
+  // alcanzan (terminados en Y, I, TH, E, N, Z…).
+  'AIDE','ALIX','AMY','ANGELLY','ANGELY','ANGI','ANGY','ANNIE','ANNY','ANYELI','ANYI',
+  'ARACELY','ASHLEY','ASHLY','BETTY','BRIGITH','BRITNEY','CATHERINE','DARCY','DARLY','DARLYN',
+  'DARY','DEICY','DEISY','DEYSI','EIMY','ELIZABETH','EMELY','EMELYN','EMILCE','EMILSE',
+  'EMILY','ESTEFANY','EVELYN','FERGIE','GENNY','HEIDI','HELEN','HELLEN','HEYDI','INGRI',
+  'INGRY','IVONNE','JACKELINE','JAKELINE','JEIDY','JEIMY','JUDITH','JUDY','JULLY','JULY',
+  'KAROLAY','KAROLL','KATERINE','KATHERINE','KATTY','KIMBERLY','LADY','LAUDITH','LAUDY',
+  'LAUREN','LAURY','LESLY','LEYDI','LEYDY','LICETH','LILIBETH','LISBETH','LISETH','LISSETH',
+  'LIZ','LIZETH','LUCY','LUDY','MAGALY','MARGY','MARILUZ','MARLEN','MARLY','MARLYN','MARYI',
+  'MARYURI','MARYURY','MATILDE','MAYERLI','MAYERLY','MELANI','MELANNY','MELANY','MERLY',
+  'MICHELL','MILDRED','MILEIDY','NARLY','NASLY','NATALI','NATALY','NAYDU','NAZLY','NEIDY',
+  'NELCY','NICOLE','NICOLL','NICOLLE','NINI','NOHEMI','NURY','SAMY','SANDY','SARAY','SARITH',
+  'SHARICK','SHARIK','SHARIT','SHARITH','SHIRLY','SIRLEY','SLENDY','STEFANNY','STEFANY',
+  'STEPHANY','SULAY','VALERIE','VALERY','YAKELINE','YANET','YEIDY','YEIMI','YEIMY','YENI',
+  'YENNI','YENY','YERLY','YISETH','YORLEY','YUDI','YUDY','YULEIDYS','YULEISY','YULI','YULIET',
+  'YULY','YURANY','YURI','YURLEY','YURY','ZARAY','ZARETH','ZARITH','ZHARICK','ZULY',
 ]);
 const NAMES_M = new Set(['CARLOS','JUAN','LUIS','JOSE','JORGE','PEDRO','MIGUEL','ANTONIO','EDUARDO',
   'ANDRES','DAVID','DANIEL','FELIPE','MANUEL','FRANCISCO','MARIO','OSCAR','HERNANDO','RAFAEL',
@@ -774,6 +791,11 @@ const NAMES_M = new Set(['CARLOS','JUAN','LUIS','JOSE','JORGE','PEDRO','MIGUEL',
   'GERSON','GIOVANNI','GLOBER','GODOFREDO','GURWINDER','HELIODORO','ABSALON','ABNER',
   'ADALBERTO','ADALY','ADONIAS','ADONIAS','ADRIANO','AGUSTIN','AHARON','AIMER','AIRON',
   'AITON','ALADINO','ALBEIRO','ALBEIRO','ALBER','ALBI','ALDAIR',
+  // Nombres tomados de migraciones reales que las reglas gramaticales no alcanzan.
+  'ABRAHAM','ALBERT','ALEX','ANDREY','ANDY','ANTHONY','ANTONY','ARBEY','ARLEY','DANNY',
+  'DEIBY','DEIVY','EDUAR','EDUARD','EDWAR','EDWARD','ENRIQUE','ERIK','FRANK','FREDDY',
+  'HERMES','ISAAC','JEFRY','JEREMY','JIMMY','LIAM','LUCAS','LUDWING','MATHIAS','MICHAELL',
+  'RONAL','RONALD','STEVEN','STIVEN','THOMAS','YAIR','YAMID','YESID',
 ]);
 
 // ─── ESTADO ─────────────────────────────────────────────────────────────────
@@ -1281,12 +1303,25 @@ function normDocType(val){
   return MAP[v]||v;
 }
 
+// Sexo deducido SOLO de las listas explicitas de nombres: alta confianza,
+// suficiente para contradecir lo que dice el archivo de origen.
+function knownSex(nombre){
+  if(!nombre) return '';
+  const n=String(nombre).toUpperCase().trim().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(NAMES_M.has(n)) return 'masculino';
+  if(NAMES_F.has(n)) return 'femenino';
+  return '';
+}
+
 function inferSex(nombre){
   if(!nombre) return '';
   const n=nombre.toUpperCase().trim().normalize('NFD').replace(/[̀-ͯ]/g,'');
   if(NAMES_M.has(n)) return 'masculino';
   if(NAMES_F.has(n)) return 'femenino';
   // Reglas gramaticales
+  // Terminacion -TH (LIZETH, YULIETH, SARITH, BRIGITH, LISBETH…): en Colombia
+  // es practicamente siempre femenina. SETH es la unica excepcion habitual.
+  if(n.endsWith('TH') && n!=='SETH') return 'femenino';
   if(n.endsWith('A')) return 'femenino';
   if(n.endsWith('O')||n.endsWith('OS')) return 'masculino';
   if(['SON','IN','ON','AN','EL','OL','ER','US','IS','OR'].some(x=>n.endsWith(x))) return 'masculino';
@@ -1402,8 +1437,16 @@ function processData(){
       const causa = rawSexo ? `Sexo "${rawSexo}" no es válido para DentOS` : 'Sin sexo';
       if(inf){ sexo=inf; rowFindings.push({type:'info',campo:'Sexo',msg:`${causa}. Inferido por nombre "${out.primer_nombre}": ${inf}.`}); }
       else rowFindings.push({type:'warn',campo:'Sexo',msg:`${causa} y no se pudo inferir por el nombre "${out.primer_nombre}".`});
-    } else if(rawSexo.toLowerCase()!==sexo){
-      rowFindings.push({type:'info',campo:'Sexo',msg:`Normalizado: "${rawSexo}" → "${sexo}"`});
+    } else {
+      // El origen manda, pero si el nombre está en la lista y dice lo contrario
+      // es casi seguro un error de captura: se avisa sin cambiar el valor.
+      const known = knownSex(out.primer_nombre);
+      if(known && known !== sexo){
+        rowFindings.push({type:'warn',campo:'Sexo',
+          msg:`El archivo dice "${sexo}" pero "${out.primer_nombre}" es un nombre ${known}. Verifíquelo.`});
+      } else if(rawSexo.toLowerCase()!==sexo){
+        rowFindings.push({type:'info',campo:'Sexo',msg:`Normalizado: "${rawSexo}" → "${sexo}"`});
+      }
     }
     out.sexo = sexo;
 
@@ -2303,6 +2346,11 @@ function faltProcessRow(row, fila){
     const causa = rawSexo ? `Sexo "${rawSexo}" no es válido para DentOS` : 'Sin sexo';
     if(inf){ sexo=inf; rowFindings.push({type:'info',campo:'Sexo',msg:`${causa}. Inferido por nombre "${out.primer_nombre}": ${inf}.`}); }
     else rowFindings.push({type:'warn',campo:'Sexo',msg:`${causa} y no se pudo inferir por el nombre.`}); }
+  else {
+    const known=knownSex(out.primer_nombre);
+    if(known && known!==sexo) rowFindings.push({type:'warn',campo:'Sexo',
+      msg:`El archivo dice "${sexo}" pero "${out.primer_nombre}" es un nombre ${known}. Verifíquelo.`});
+  }
   out.sexo=sexo;
 
   // Fecha registro
