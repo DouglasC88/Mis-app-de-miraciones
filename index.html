@@ -787,7 +787,7 @@ function handleFile(e){ const f = e.target.files[0]; if(f) loadFile(f); }
 function loadFile(file){
   const n = file.name.toLowerCase();
   st.filename = file.name.replace(/\.[^.]+$/,'');
-  document.getElementById('export-name').value = st.filename + '_organizado';
+  document.getElementById('export-name').value = safeFileName(st.filename + '_organizado');
 
   if(n.endsWith('.csv')||n.endsWith('.txt')){
     Papa.parse(file,{
@@ -1052,7 +1052,15 @@ function updateSelStyle(sel){ sel.classList.toggle('ok', !!sel.value); }
 
 // ─── UTILIDADES ─────────────────────────────────────────────────────────────
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-function clean(v){ return String(v??'').replace(/[\r\n\t]/g,' ').trim(); }
+function clean(v){
+  return String(v??'')
+    .replace(/[\r\n\t]/g,' ')              // saltos y tabs rompen el formato delimitado
+    .replace(/[\u00A0\u2007\u202F]/g,' ')  // espacios duros (NBSP) → espacio normal
+    .replace(/[\u200B-\u200D\uFEFF]/g,'') // caracteres invisibles / BOM
+    .replace(/[\x00-\x1F\x7F]/g,'')       // caracteres de control
+    .replace(/ {2,}/g,' ')
+    .trim();
+}
 
 // Construye una fecha válida desde año/mes/día; null si la fecha no existe
 // (ej. 00/00/0000, día 31 en mes de 30, mes 13, año absurdo).
@@ -1835,7 +1843,21 @@ ${_sc}
   toast(`Reporte exportado: ${st.findings.length} hallazgos ✅`,'ok');
 }
 
+// DentOS rechaza el archivo si el nombre trae espacios, acentos o simbolos.
+// Deja solo [A-Za-z0-9._-]: 'Pacientes dentafamily_organizado' → 'Pacientes_dentafamily_organizado'
+function safeFileName(base){
+  const s = String(base??'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // quita tildes/dieresis
+    .replace(/ñ/g,'n').replace(/Ñ/g,'N')
+    .replace(/[^A-Za-z0-9._-]+/g,'_')                // espacios y simbolos → _
+    .replace(/_{2,}/g,'_')
+    .replace(/^[._-]+|[._-]+$/g,'');
+  return s || 'migraciones_pacientes';
+}
+
 function downloadBlob(blob, filename){
+  const m = String(filename).match(/^(.*?)(\.[A-Za-z0-9]+)?$/);
+  filename = safeFileName(m[1]) + (m[2]||'').toLowerCase();
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
 }
