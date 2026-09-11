@@ -464,6 +464,21 @@ tr.row-d td{background:var(--gray-100)!important;opacity:.55;text-decoration:lin
         <button class="btn btn-green" onclick="showExportReview()">⬇ Exportar TXT (tabulación)</button>
         <button class="btn btn-yellow" onclick="exportFindings()">📄 Descargar reporte de hallazgos (.html)</button>
       </div>
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px;padding-top:12px;
+                  border-top:1px solid var(--gray-300);">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="ex-split" checked onchange="syncSplit('ex')"
+                 style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;">
+          <span style="font-size:.82rem;color:var(--gray-700);"><strong>Dividir</strong> en archivos de</span>
+        </label>
+        <input type="number" id="ex-split-size" value="2000" min="100" max="50000" step="100"
+               oninput="syncSplit('ex')"
+               style="width:96px;padding:5px 8px;border:1px solid var(--gray-300);border-radius:7px;
+                      background:var(--gray-50);color:var(--gray-900);font-size:.82rem;font-weight:600;
+                      font-family:inherit;">
+        <span style="font-size:.82rem;color:var(--gray-700);">registros</span>
+        <span id="ex-split-info" style="font-size:.78rem;color:var(--green);font-weight:600;"></span>
+      </div>
       <div style="display:flex;justify-content:space-between;margin-top:12px;">
         <button class="btn btn-secondary" onclick="goStep(2)">← Volver a mapear</button>
         <button class="btn btn-secondary" onclick="goStep(1)">🔄 Nuevo archivo</button>
@@ -1416,6 +1431,7 @@ function processData(){
   renderStats();
   renderTable();
   renderFindings();
+  updateSplitInfo();
   goStep(3);
   toast(`Procesadas ${processed.length} filas · ${dupes} duplicados eliminados · ${findings.length} hallazgos`,'ok');
 }
@@ -2481,6 +2497,29 @@ function closeExportReview(){
   document.getElementById('export-review-overlay').style.display = 'none';
 }
 
+// Los controles de división están en dos sitios (tarjeta Exportar y modal de
+// revisión); se mantienen espejados para que den el mismo resultado.
+function syncSplit(src){
+  const to = src==='ex' ? 'er' : 'ex';
+  for(const suf of ['-split','-split-size','-split-restart']){
+    const a=document.getElementById(src+suf), b=document.getElementById(to+suf);
+    if(!a||!b) continue;
+    if(a.type==='checkbox') b.checked=a.checked; else b.value=a.value;
+  }
+  updateSplitInfo();
+  if(document.getElementById('export-review-overlay')?.style.display==='flex') updateExportReview();
+}
+
+function updateSplitInfo(){
+  const el=document.getElementById('ex-split-info');
+  if(!el) return;
+  const total=st.processed.filter(r=>!r._isDuplicate).length;
+  if(!total){ el.textContent=''; return; }
+  const ch=readSplitSize('ex-split','ex-split-size');
+  const files=(!ch||total<=ch) ? 1 : Math.ceil(total/ch);
+  el.textContent = `→ ${total} registros en ${files} archivo${files>1?'s':''}`;
+}
+
 const ER_PROBLEM_LIMIT = 300;
 
 function updateExportReview(){
@@ -2703,20 +2742,20 @@ async function confirmExport(){
       <!-- División en bloques -->
       <div style="border-top:1px solid var(--gray-300);margin-top:12px;padding-top:12px;">
         <label style="display:flex;align-items:center;gap:9px;cursor:pointer;flex-wrap:wrap;">
-          <input type="checkbox" id="er-split" checked onchange="updateExportReview()"
+          <input type="checkbox" id="er-split" checked onchange="syncSplit('er')"
                  style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;">
           <span style="font-size:.82rem;color:var(--gray-700);">
             <strong>Dividir</strong> el TXT en archivos de
           </span>
           <input type="number" id="er-split-size" value="2000" min="100" max="50000" step="100"
-                 oninput="updateExportReview()"
+                 oninput="syncSplit('er')"
                  style="width:96px;padding:5px 8px;border:1px solid var(--gray-300);border-radius:7px;
                         background:var(--gray-50);color:var(--gray-900);font-size:.82rem;font-weight:600;
                         font-family:inherit;">
           <span style="font-size:.82rem;color:var(--gray-700);">registros cada uno</span>
         </label>
         <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-top:9px;margin-left:25px;">
-          <input type="checkbox" id="er-split-restart" onchange="updateExportReview()"
+          <input type="checkbox" id="er-split-restart" onchange="syncSplit('er')"
                  style="width:15px;height:15px;accent-color:var(--green);cursor:pointer;">
           <span style="font-size:.78rem;color:var(--gray-500);">
             Reiniciar la numeración de <strong>Fila</strong> en cada archivo
