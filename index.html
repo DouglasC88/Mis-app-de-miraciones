@@ -1896,7 +1896,10 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 // Descarga los registros en uno o varios .txt. Devuelve el número de archivos.
 async function downloadRowsSplit(rows, baseName, chunkSize, restartFila){
   const name = safeFileName(baseName, 'migraciones_pacientes');
-  const mkBlob = lines => new Blob([lines.join('\r\n')],{type:'text/plain;charset=utf-8'});
+  // Cada archivo cierra con CRLF: el módulo de migraciones cuenta terminadores
+  // de línea, así que sin el salto final el último registro no se cuenta ni se
+  // migra (un archivo de 2.000 registros se reportaba como 1.999).
+  const mkBlob = lines => new Blob([lines.join('\r\n')+'\r\n'],{type:'text/plain;charset=utf-8'});
 
   if(!chunkSize || rows.length <= chunkSize){
     downloadBlob(mkBlob(buildRowLines(rows,1)), name+'.txt');
